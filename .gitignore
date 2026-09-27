@@ -18,5 +18,12 @@ Thumbs.db
 .vscode/
 .idea/
 
+# Database files
+server/*.db
+*.db
+
+# Test scripts
+test-*.js
+
 # Firebase emulator data
 .cache/firebase/emulators/
