@@ -1,0 +1,186 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ─── Helper functions ────────────────────────────────────────────────────
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isOwner(uid) {
+      return request.auth.uid == uid;
+    }
+
+    function getUserData() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+    }
+
+    function hasRole(role) {
+      return isAuthenticated() && (
+        getUserData().role == role || 
+        (role == 'student' && !isMentorType())
+      );
+    }
+
+    function hasAnyRole(roles) {
+      return isAuthenticated() && (
+        getUserData().role in roles ||
+        (getUserData().role == null && !isMentorType())
+      );
+    }
+
+    function isAdmin() {
+      return isAuthenticated() && getUserData().role == 'admin';
+    }
+
+    function isMentorType() {
+      return isAuthenticated() && (
+        getUserData().role in ['mentor', 'investor', 'industrialist']
+      );
+    }
+
+    // ─── Users collection ────────────────────────────────────────────────────
+    match /users/{userId} {
+      allow read: if isAuthenticated();
+      allow create, update: if isAuthenticated() && (isOwner(userId) || isAdmin());
+      allow delete: if isAdmin();
+    }
+
+    // ─── Students collection ─────────────────────────────────────────────────
+    match /students/{studentId} {
+      allow read: if isAuthenticated();
+      allow create, update: if isAuthenticated() && (isOwner(studentId) || isAdmin());
+      allow delete: if isAdmin();
+    }
+
+    // ─── Mentors collection ──────────────────────────────────────────────────
+    match /mentors/{mentorId} {
+      allow read: if isAuthenticated();
+      allow create, update: if isAuthenticated() && (isOwner(mentorId) || isAdmin());
+      allow delete: if isAdmin();
+    }
+
+    // ─── Mentor expertise (anonymized for students) ──────────────────────────
+    match /mentorExpertise/{expertiseId} {
+      allow read: if isAuthenticated();
+      allow write: if isAuthenticated();
+    }
+
+    // ─── Projects ────────────────────────────────────────────────────────────
+    match /projects/{projectId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated();
+      allow update, delete: if isAuthenticated() && (
+        isOwner(resource.data.uploaded_by) ||
+        isOwner(resource.data.uploadedBy) ||
+        isOwner(resource.data.studentId) ||
+        isAdmin()
+      );
+    }
+
+    // ─── Project files ────────────────────────────────────────────────────────
+    match /projectFiles/{fileId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated();
+      allow update, delete: if isAuthenticated() && (
+        isOwner(resource.data.user_id) ||
+        isOwner(resource.data.uploadedBy) ||
+        isAdmin()
+      );
+    }
+
+    // ─── Project analysis ─────────────────────────────────────────────────────
+    match /projectAnalysis/{analysisId} {
+      allow read: if isAuthenticated();
+      allow write: if isAuthenticated();
+    }
+
+    // ─── Project scores ───────────────────────────────────────────────────────
+    match /projectScores/{scoreId} {
+      allow read: if isAuthenticated();
+      allow write: if isAuthenticated();
+    }
+
+    // ─── Project evidence ────────────────────────────────────────────────────
+    match /projectEvidence/{evidenceId} {
+      allow read: if isAuthenticated();
+      allow write: if isAuthenticated();
+    }
+
+    // ─── Project technologies ────────────────────────────────────────────────
+    match /projectTechnologies/{techId} {
+      allow read: if isAuthenticated();
+      allow write: if isAuthenticated();
+    }
+
+    // ─── Support requirements ────────────────────────────────────────────────
+    match /supportRequirements/{reqId} {
+      allow read: if isAuthenticated();
+      allow write: if isAuthenticated();
+    }
+
+    // ─── Connections ─────────────────────────────────────────────────────────
+    match /connections/{connectionId} {
+      allow read: if isAuthenticated();
+      allow create, update: if isAuthenticated();
+      allow delete: if isAdmin();
+    }
+
+    // ─── Mentorships ─────────────────────────────────────────────────────────
+    match /mentorships/{mentorshipId} {
+      allow read: if isAuthenticated();
+      allow write: if isAuthenticated();
+    }
+
+    // ─── Project lifecycle ───────────────────────────────────────────────────
+    match /projectLifecycle/{eventId} {
+      allow read: if isAuthenticated();
+      allow write: if isAuthenticated();
+    }
+
+    // ─── Notifications ───────────────────────────────────────────────────────
+    match /notifications/{notifId} {
+      allow read: if isAuthenticated();
+      allow create, update, delete: if isAuthenticated();
+    }
+
+    // ─── Feedback ────────────────────────────────────────────────────────────
+    match /feedback/{feedbackId} {
+      allow read: if isAuthenticated();
+      allow create, update, delete: if isAuthenticated();
+    }
+
+    // ─── Project updates ─────────────────────────────────────────────────────
+    match /projectUpdates/{updateId} {
+      allow read: if isAuthenticated();
+      allow create, update, delete: if isAuthenticated();
+    }
+
+    // ─── AI recommendations ──────────────────────────────────────────────────
+    match /aiRecommendations/{recId} {
+      allow read: if isAuthenticated();
+      allow write: if isAuthenticated();
+    }
+
+    // ─── Access Requests & Grants ────────────────────────────────────────────
+    match /accessRequests/{reqId} {
+      allow read, write: if isAuthenticated();
+    }
+    match /accessGrants/{grantId} {
+      allow read, write: if isAuthenticated();
+    }
+    match /accessLogs/{logId} {
+      allow read, write: if isAuthenticated();
+    }
+    match /mentorPosts/{postId} {
+      allow read, write: if isAuthenticated();
+    }
+
+    // ─── Platform stats (public read) ────────────────────────────────────────
+    match /platformStats/{statId} {
+      allow read: if true;
+      allow write: if isAuthenticated();
+    }
+  }
+}

@@ -1,0 +1,52 @@
+rules_version = '2';
+
+service firebase.storage {
+  match /b/{bucket}/o {
+
+    // Helper functions
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return request.auth.uid == userId;
+    }
+
+    function isValidFileSize() {
+      // Max 50MB per file
+      return request.resource.size <= 50 * 1024 * 1024;
+    }
+
+    function isValidFileType() {
+      return request.resource.contentType.matches('application/pdf') ||
+             request.resource.contentType.matches('application/vnd.ms-powerpoint') ||
+             request.resource.contentType.matches('application/vnd.openxmlformats-officedocument.presentationml.presentation') ||
+             request.resource.contentType.matches('application/msword') ||
+             request.resource.contentType.matches('application/vnd.openxmlformats-officedocument.wordprocessingml.document') ||
+             request.resource.contentType.matches('application/zip') ||
+             request.resource.contentType.matches('application/x-zip-compressed') ||
+             request.resource.contentType.matches('text/.*') ||
+             request.resource.contentType.matches('image/.*') ||
+             request.resource.contentType.matches('video/.*') ||
+             request.resource.contentType.matches('application/octet-stream');
+    }
+
+    // Project files path: projects/{userId}/{projectId}/{fileName}
+    match /projects/{userId}/{projectId}/{fileName} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated() && isOwner(userId) &&
+                       isValidFileSize() && isValidFileType();
+      allow delete: if isAuthenticated() && isOwner(userId);
+      allow update: if false;
+    }
+
+    // User avatars
+    match /avatars/{userId}/{fileName} {
+      allow read: if isAuthenticated();
+      allow create, update: if isAuthenticated() && isOwner(userId) &&
+                               request.resource.size <= 5 * 1024 * 1024 &&
+                               request.resource.contentType.matches('image/.*');
+      allow delete: if isAuthenticated() && isOwner(userId);
+    }
+  }
+}
